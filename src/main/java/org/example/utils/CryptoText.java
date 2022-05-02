@@ -1,12 +1,10 @@
 package org.example.utils;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import io.github.cdimascio.dotenv.DotenvEntry;
 import jakarta.xml.bind.DatatypeConverter;
 import net.serenitybdd.junit.runners.SerenityRunner;
 import org.apache.commons.codec.binary.Base64;
 import org.jetbrains.annotations.NotNull;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.passay.CharacterData;
 import org.passay.*;
@@ -21,8 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.List;
 
 @RunWith(SerenityRunner.class)
 public class CryptoText {
@@ -31,7 +27,6 @@ public class CryptoText {
     private static SecretKey keyDes = null;
     private static final String SOIL = "12345ABCabc@#$()";
     private static final String pathStr = "src/test/resources/.env";
-    private static final String pathStr2 = "src/test/resources/.env2";
     private static final Dotenv dotenv = Dotenv.configure()
             .directory(pathStr)
             .ignoreIfMalformed()
@@ -153,14 +148,6 @@ public class CryptoText {
         splCharRule.setNumberOfCharacters(Math.floorDiv(passLength, 10));
 
         return gen.generatePassword(passLength, splCharRule, lowerCaseRule, upperCaseRule, digitRule);
-    }
-
-    public static void main(String[] args) {
-        try {
-            passConverterBase64OnEncrypt();
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-        }
     }
 }
 
