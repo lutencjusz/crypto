@@ -155,25 +155,6 @@ public class CryptoText {
         return gen.generatePassword(passLength, splCharRule, lowerCaseRule, upperCaseRule, digitRule);
     }
 
-    @Test
-
-    private static void passConverterBase64OnEncrypt() throws Exception {
-        List<String> s = new ArrayList<>();
-        for (DotenvEntry e : dotenv.entries()) {
-            if (e.getKey().contains("_USER_NAME") || e.getKey().contains("_PASSWORD")) {
-                System.out.println(ConsoleColors.GREEN_BOLD_BRIGHT + "-----------" + e.getKey() + "-------------" + ConsoleColors.RESET);
-                System.out.println("obecna wartość: Klucz: " + ConsoleColors.WHITE_BOLD_BRIGHT + e.getKey() + ConsoleColors.GREEN + "=" + ConsoleColors.YELLOW_BOLD + e.getValue() + ConsoleColors.RESET);
-                String decodeDesValue = new String(Base64.decodeBase64(e.getValue().getBytes()));
-                System.out.println("Zdekodowana wartość: " + decodeDesValue);
-                String newValue = encodeDES(decodeDesValue);
-                System.out.println("nowa wartość: Klucz: " + ConsoleColors.WHITE_BOLD_BRIGHT + e.getKey() + ConsoleColors.GREEN + "=" + ConsoleColors.YELLOW_BOLD + newValue + ConsoleColors.RESET);
-                s.add(e.getKey() + "=" + newValue);
-            }
-        }
-        Path file = Paths.get(pathStr2);
-        Files.write(file, s, StandardCharsets.UTF_8);
-    }
-
     public static void main(String[] args) {
         try {
             passConverterBase64OnEncrypt();
