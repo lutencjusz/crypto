@@ -8,20 +8,20 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class AppTest {
-
+    private static final Integer NANO_TO_MILLISECOND = 1_000_000;
     public void testAlgorithm(String algorithm) {
         System.out.println(ConsoleColors.GREEN_BOLD + "Testowanie " + algorithm + ConsoleColors.RESET);
         String testData = testPassGenerator((int) (10 + Math.round(Math.random() * 10)));
         Long encodeBegin = System.nanoTime();
         String encodedData = encode(testData, algorithm);
         Long encodeEnd = System.nanoTime();
-        double diffEncode = (double) (encodeEnd - encodeBegin) / 1_000_000;
+        double diffEncode = (double) (encodeEnd - encodeBegin) / NANO_TO_MILLISECOND;
         assert encodedData != null;
         String encodedDataB64 = new String(Base64.decodeBase64(encodedData.getBytes()));
         Long decodeBegin = System.nanoTime();
         String decodedData = decode(encodedData, algorithm);
         Long decodeEnd = System.nanoTime();
-        double diffDecode = (double) (decodeEnd - decodeBegin) / 1_000_000;
+        double diffDecode = (double) (decodeEnd - decodeBegin) / NANO_TO_MILLISECOND;
         System.out.println("Tekst testowy: " + ConsoleColors.WHITE_BOLD_BRIGHT + testData + ConsoleColors.RESET);
         System.out.println("Tekst zakodowany " + algorithm + ": " + encodedData + ", czas kodowania: " + diffEncode + " min. sek.");
         System.out.println("Tekst zdekodowany Base64: " + encodedDataB64);
