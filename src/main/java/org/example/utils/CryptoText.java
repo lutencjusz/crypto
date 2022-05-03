@@ -10,6 +10,7 @@ import org.passay.CharacterData;
 import org.passay.*;
 
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
@@ -19,27 +20,28 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.security.SecureRandom;
 
 @RunWith(SerenityRunner.class)
 public class CryptoText {
 
     //    private static SecretKey keyAes = null;
-    private static SecretKey keyDes = null;
-    private static final String SOIL = "12345ABCabc@#$()";
-    private static final String pathStr = "src/test/resources/.env";
+    private static SecretKey key = null;
+    private static final String SALT = "12345ABCabc@#$()";
+    private static final String PATH = "src/test/resources/.env";
     private static final Dotenv dotenv = Dotenv.configure()
-            .directory(pathStr)
+            .directory(PATH)
             .ignoreIfMalformed()
             .ignoreIfMissing()
             .load();
     private static Cipher cipher;
 
-//    private static SecretKey createAESKey() throws Exception {
-//        SecureRandom securerandom = new SecureRandom(SOIL.getBytes());
-//        KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
-//        keygenerator.init(256, securerandom);
-//        return keygenerator.generateKey();
-//    }
+    private static SecretKey createAESKey(String keyAesString) throws Exception {
+        SecureRandom securerandom = new SecureRandom(keyAesString.getBytes());
+        KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
+        keygenerator.init(256, securerandom);
+        return keygenerator.generateKey();
+    }
 
     private static SecretKey createDESKey(String keyDesString) throws Exception {
         DESKeySpec dks = new DESKeySpec(keyDesString.getBytes());
@@ -48,9 +50,9 @@ public class CryptoText {
     }
 
     private static void saveKey(String key, String value) {
-        Path p = Paths.get(pathStr);
+        Path p = Paths.get(PATH);
         String s = System.lineSeparator() + key + value;
-        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + pathStr + ")...");
+        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + PATH + ")...");
         try {
             Files.write(p, s.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ex) {
@@ -58,40 +60,72 @@ public class CryptoText {
         }
     }
 
-    private static void init() throws Exception {
-        if (keyDes == null) {
-            String keyDesString = dotenv.get("KEY_DES");
-            if (keyDesString == null) {
-                DESKeySpec dks = new DESKeySpec(SOIL.getBytes());
-                SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("DES");
-                keyDesString = DatatypeConverter.printHexBinary(keyFactory.generateSecret(dks).getEncoded());
-                String keyDesStringEncoded = Base64.encodeBase64String(keyDesString.getBytes(StandardCharsets.UTF_8));
-                keyDes = createDESKey(keyDesStringEncoded);
-                saveKey("KEY_DES=", keyDesStringEncoded);
-                System.out.println("key: " + DatatypeConverter.printHexBinary(keyDes.getEncoded()) + ConsoleColors.RESET);
+    /**
+     * Sprawdza, czy został pobrany klucz dla algorytmu określonego w <b>algorithm</b>
+     * jeżeli nie, pobiera odpowiedni dla algorytmu klucz z <b>.env</b>
+     * jeżeli klucza nie ma w <b>.env</b>, tworzy klucza dla odpowiedniego algorytmu na podstawie {@link CryptoText#SALT}
+     * i zapisuje w <b>.env</b>
+     *
+     * @param algorithm metoda kodowania, możliwy do wyboru <b>DES</b> lub <b>AES</b>
+     * @throws Exception obsługuje wyjątki:
+     *                   - wygenerowany klucz nie spełnia wymagań,
+     *                   - algorytm jest niewłaściwy,
+     *                   - wyjątki powstałe w {@link CryptoText#createAESKey} oraz w {@link CryptoText#createDESKey}
+     */
+    private static void init(@NotNull String algorithm) throws Exception {
+        assert algorithm.equals("DES") || algorithm.equals("AES");
+        if (key == null) {
+            String keyString = dotenv.get("KEY_" + algorithm);
+            if (keyString == null) {
+                if (algorithm.equals("DES")) {
+                    DESKeySpec dks = new DESKeySpec(SALT.getBytes());
+                    SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("DES");
+                    String keyDesString = DatatypeConverter.printHexBinary(keyFactory.generateSecret(dks).getEncoded());
+                    String keyDesStringEncoded = Base64.encodeBase64String(keyDesString.getBytes(StandardCharsets.UTF_8));
+                    key = createDESKey(keyDesStringEncoded);
+                    saveKey("KEY_DES=", keyDesStringEncoded);
+                    System.out.println("key DES: " + DatatypeConverter.printHexBinary(key.getEncoded()) + ConsoleColors.RESET);
+                } else {
+                    SecureRandom securerandom = new SecureRandom(SALT.getBytes());
+                    KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
+                    keygenerator.init(256, securerandom);
+                    String keyAesString = DatatypeConverter.printHexBinary(keygenerator.generateKey().getEncoded());
+                    String keyAesStringEncoded = Base64.encodeBase64String(keyAesString.getBytes(StandardCharsets.UTF_8));
+                    key = createAESKey(keyAesStringEncoded);
+                    saveKey("KEY_AES=", keyAesStringEncoded);
+                    System.out.println("key AES: " + DatatypeConverter.printHexBinary(key.getEncoded()) + ConsoleColors.RESET);
+                }
             } else {
-                keyDes = createDESKey(keyDesString);
+                if (algorithm.equals("DES")) {
+                    key = createDESKey(keyString);
+                } else {
+                    key = createAESKey(keyString);
+                }
             }
+        } else {
+            System.out.println(ConsoleColors.YELLOW + "Pobrano klucz (" + algorithm + ")..." + ConsoleColors.RESET);
         }
     }
 
     /**
-     * koduje tekst <b>data</b> i zwraca zakodowaną wartość przy pomocy algorytmu DES,
-     * jeżeli w pliku <b>.env</b> nie znalazł klucza <i>KEY_DES</i> to za pomocą {@link CryptoText#init()}
-     * klucz zostanie utworzony i zapisany w <b>.env</b>
+     * Szyfruje tekst <b>data</b> i zwraca zaszyfrowaną wartość przy pomocy algorytmu DES,
+     * przed zaszyfrowaniem sprawdza, czy w pliku <b>.env</b> jest już <i>KEY_DES</i>. Jeżeli nie ma, to za pomocą {@link CryptoText#init}
+     * i na podstawie wartości zmiennej {@link CryptoText#SALT} tworzy klucz i zapisuje w <b>.env</b>
      *
-     * @param data tekst, który ma zostać zakodowany
+     * @param data      tekst, który ma zostać zakodowany
+     * @param algorithm metoda kodowania, możliwy do wyboru <b>DES</b> lub <b>AES</b>
      * @return String zwraca zakodowany tekst
      * @see CryptoText#saveKey
      * @see CryptoText#createDESKey
      */
-    public static String encodeDES(@NotNull String data) {
+    public static String encode(@NotNull String data, @NotNull String algorithm) {
         try {
-            init();
-            cipher = Cipher.getInstance("DES");
+            assert algorithm.equals("DES") || algorithm.equals("AES");
+            init(algorithm);
+            cipher = Cipher.getInstance(algorithm);
             try {
-                assert keyDes != null;
-                cipher.init(Cipher.ENCRYPT_MODE, keyDes);
+                assert key != null;
+                cipher.init(Cipher.ENCRYPT_MODE, key);
             } catch (NullPointerException ex) {
                 System.out.println(ConsoleColors.RED_BOLD + "Klucz jest pusty" + ConsoleColors.RESET);
             }
@@ -103,17 +137,19 @@ public class CryptoText {
     }
 
     /**
-     * rozkodowuje tekst <b>encodedData</b> przy pomocy algorytmu DES,
+     * rozkodowuje tekst <b>encodedData</b> przy pomocy algorytmu określonego w <b>algorithm</b>,
      *
      * @param encodedData zakodowany tekst za pomocą algorytmu DES
+     * @param algorithm   metoda kodowania, możliwy do wyboru <b>DES</b> lub <b>AES</b>
      * @return String zwraca zdekodowany tekst
      */
-    public static String decodeDES(@NotNull String encodedData) {
+    public static String decode(@NotNull String encodedData, @NotNull String algorithm) {
         try {
-            init();
-            cipher = Cipher.getInstance("DES");
-            assert keyDes != null;
-            cipher.init(Cipher.DECRYPT_MODE, keyDes);
+            assert algorithm.equals("DES") || algorithm.equals("AES");
+            init(algorithm);
+            cipher = Cipher.getInstance(algorithm);
+            assert key != null;
+            cipher.init(Cipher.DECRYPT_MODE, key);
             return new String(cipher.doFinal(Base64.decodeBase64(encodedData.getBytes())));
         } catch (Exception ex) {
             System.out.println(ConsoleColors.RED_BOLD + "Nastąpił błąd: " + ex.getMessage() + ConsoleColors.RESET);
@@ -124,7 +160,6 @@ public class CryptoText {
     public static String testPassGenerator(int passLength) {
 
         PasswordGenerator gen = new PasswordGenerator();
-
         CharacterData specialChars = new CharacterData() {
             public String getErrorCode() {
                 return ConsoleColors.RED_BOLD + "Nie udało się wygenerować znaków specjalnych" + ConsoleColors.RESET;
@@ -134,7 +169,6 @@ public class CryptoText {
                 return "!@#$%^&*()_+?><";
             }
         };
-
         CharacterData lowerCaseChars = EnglishCharacterData.LowerCase;
         CharacterRule lowerCaseRule = new CharacterRule(lowerCaseChars);
         lowerCaseRule.setNumberOfCharacters(Math.floorDiv(passLength, 2));
