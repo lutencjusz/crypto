@@ -10,6 +10,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.security.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class AppTest {
     private static final Integer NANO_TO_MILLISECONDS = 1_000_000;
@@ -19,26 +20,33 @@ public class AppTest {
             .ignoreIfMalformed()
             .ignoreIfMissing()
             .load();
+    static AtomicReference<String> encodedData = new AtomicReference<>("");
+    static AtomicReference<String> decodedData = new AtomicReference<>("");
+
+    private static void withTimeMeasurement(String algorithm, String format, String operation, Runnable original) {
+        Long timeBegin = System.nanoTime();
+        original.run();
+        Long timeEnd = System.nanoTime();
+        double diff = (double) (timeEnd - timeBegin) / NANO_TO_MILLISECONDS;
+        if (operation.equals("encode")) {
+            System.out.printf(format, algorithm, encodedData.get(), diff);
+        } else {
+            System.out.printf(format, algorithm, decodedData.get(), diff);
+        }
+
+    }
 
     private void testAlgorithm(String algorithm) {
         System.out.println(ConsoleColors.GREEN_BOLD + "Testowanie " + algorithm + ConsoleColors.RESET);
         String testData = testPassGenerator((int) (10 + Math.round(Math.random() * 10)));
-        Long encodeBegin = System.nanoTime();
-        String encodedData = encode(testData, algorithm);
-        Long encodeEnd = System.nanoTime();
-        double diffEncode = (double) (encodeEnd - encodeBegin) / NANO_TO_MILLISECONDS;
-        assert encodedData != null;
-        String encodedDataB64 = new String(Base64.decodeBase64(encodedData.getBytes()));
-        Long decodeBegin = System.nanoTime();
-        String decodedData = decode(encodedData, algorithm);
-        Long decodeEnd = System.nanoTime();
-        double diffDecode = (double) (decodeEnd - decodeBegin) / NANO_TO_MILLISECONDS;
         System.out.println("Tekst testowy: " + ConsoleColors.WHITE_BOLD_BRIGHT + testData + ConsoleColors.RESET);
-        System.out.println("Tekst zakodowany " + algorithm + ": " + encodedData + ", czas kodowania: " + diffEncode + " min. sek.");
+        withTimeMeasurement(algorithm, "Tekst zakodowany %s: %s czas kodowania: %s min. sek.%n", "encode", () -> encodedData.set(encode(testData, algorithm)));
+        assert encodedData.get() != null;
+        String encodedDataB64 = new String(Base64.decodeBase64(encodedData.get().getBytes()));
         System.out.println("Tekst zdekodowany Base64: " + encodedDataB64);
-        System.out.println("Tekst zdekodowany " + algorithm + ": " + ConsoleColors.WHITE_BOLD_BRIGHT + decodedData + ConsoleColors.RESET + " czas dekodowania: " + diffDecode + " min. sek.");
-        Assert.assertEquals(ConsoleColors.RED_BOLD + "Dane testowe '" + testData + "' i '" + decodedData + "' nie są zgodne" + ConsoleColors.RED_BOLD, testData, decodedData);
-        Assert.assertNotEquals(ConsoleColors.RED_BOLD + "Dane testowe '" + testData + "' i '" + decodedData + "' są zgodne, a nie powinny" + ConsoleColors.RED_BOLD, decodedData, encodedDataB64);
+        withTimeMeasurement(algorithm, "Tekst zdekodowany %s: " + ConsoleColors.WHITE_BOLD_BRIGHT + "%s" + ConsoleColors.RESET + " czas dekodowania: %s min. sek.%n", "decode", () -> decodedData.set(decode(encodedData.get(), algorithm)));
+        Assert.assertEquals(ConsoleColors.RED_BOLD + "Dane testowe '" + testData + "' i '" + decodedData.get() + "' nie są zgodne" + ConsoleColors.RED_BOLD, testData, decodedData.get());
+        Assert.assertNotEquals(ConsoleColors.RED_BOLD + "Dane testowe '" + testData + "' i '" + decodedData.get() + "' są zgodne, a nie powinny" + ConsoleColors.RED_BOLD, decodedData.get(), encodedDataB64);
     }
 
     @Test
