@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.*;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 
@@ -195,17 +194,13 @@ public class CryptoText {
         System.out.println("Private key: " + DatatypeConverter.printHexBinary(privateKey.getEncoded()));
         PublicKey publicKey = keyPair.getPublic();
         System.out.println("Public key: " + DatatypeConverter.printHexBinary(publicKey.getEncoded()));
-
         // Store Public Key.
-        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(
-                publicKey.getEncoded());
+        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(publicKey.getEncoded());
         FileOutputStream fos = new FileOutputStream(PATH + "/public.key");
         fos.write(x509EncodedKeySpec.getEncoded());
         fos.close();
-
         // Store Private Key.
-        PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(
-                privateKey.getEncoded());
+        PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(privateKey.getEncoded());
         fos = new FileOutputStream(PATH + "/private.key");
         fos.write(pkcs8EncodedKeySpec.getEncoded());
         fos.close();
@@ -219,8 +214,7 @@ public class CryptoText {
             fis.read(encodedPublicKey);
             fis.close();
             KeyFactory keyFactory = KeyFactory.getInstance("DSA");
-            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(
-                    encodedPublicKey);
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedPublicKey);
             return keyFactory.generatePublic(publicKeySpec);
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
@@ -228,23 +222,17 @@ public class CryptoText {
         }
     }
 
-    public static KeyPair LoadKeyPair()
-            throws IOException, NoSuchAlgorithmException,
-            InvalidKeySpecException {
-
+    public static KeyPair LoadKeyPair() throws Exception {
         // Read Private Key.
         File filePrivateKey = new File(PATH + "/private.key");
         FileInputStream fis = new FileInputStream(PATH + "/private.key");
         byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
         fis.read(encodedPrivateKey);
         fis.close();
-
         // Generate KeyPair.
         KeyFactory keyFactory = KeyFactory.getInstance("DSA");
-        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(
-                encodedPrivateKey);
+        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(encodedPrivateKey);
         PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
-
         return new KeyPair(loadPublicKey(), privateKey);
     }
 }
