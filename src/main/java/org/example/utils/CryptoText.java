@@ -49,10 +49,10 @@ public class CryptoText {
         return keyFactory.generateSecret(dks);
     }
 
-    private static void saveKey(String key, String value) {
+    public static void saveKey(String key, String value) {
         Path p = Paths.get(PATH);
         String s = System.lineSeparator() + key + value;
-        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + PATH + ")...");
+        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + PATH + ")..." + ConsoleColors.RESET);
         try {
             Files.write(p, s.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ex) {
