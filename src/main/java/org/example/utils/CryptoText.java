@@ -14,23 +14,29 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.security.SecureRandom;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 
 @RunWith(SerenityRunner.class)
 public class CryptoText {
 
     //    private static SecretKey keyAes = null;
     private static SecretKey key = null;
-    private static final String SALT = "12345ABCabc@#$()";
-    private static final String PATH = "src/test/resources/.env";
+    public static final String SALT = "12345ABCabc@#$()";
+    private static final String PATH = "src/test/resources/";
     private static final Dotenv dotenv = Dotenv.configure()
-            .directory(PATH)
+            .directory(PATH + ".env")
             .ignoreIfMalformed()
             .ignoreIfMissing()
             .load();
@@ -50,9 +56,9 @@ public class CryptoText {
     }
 
     public static void saveKey(String key, String value) {
-        Path p = Paths.get(PATH);
+        Path p = Paths.get(PATH + ".env");
         String s = System.lineSeparator() + key + value;
-        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + PATH + ")..." + ConsoleColors.RESET);
+        System.out.println(ConsoleColors.YELLOW + "Nie znalazłem klucza " + key + ", generuje nowy i zapisuje do .env (" + PATH + ".env" + ")..." + ConsoleColors.RESET);
         try {
             Files.write(p, s.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ex) {
@@ -182,6 +188,64 @@ public class CryptoText {
         splCharRule.setNumberOfCharacters(Math.floorDiv(passLength, 10));
 
         return gen.generatePassword(passLength, splCharRule, lowerCaseRule, upperCaseRule, digitRule);
+    }
+
+    public static void SaveKeyPair(KeyPair keyPair) throws IOException {
+        PrivateKey privateKey = keyPair.getPrivate();
+        System.out.println("Private key: " + DatatypeConverter.printHexBinary(privateKey.getEncoded()));
+        PublicKey publicKey = keyPair.getPublic();
+        System.out.println("Public key: " + DatatypeConverter.printHexBinary(publicKey.getEncoded()));
+
+        // Store Public Key.
+        X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(
+                publicKey.getEncoded());
+        FileOutputStream fos = new FileOutputStream(PATH + "/public.key");
+        fos.write(x509EncodedKeySpec.getEncoded());
+        fos.close();
+
+        // Store Private Key.
+        PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(
+                privateKey.getEncoded());
+        fos = new FileOutputStream(PATH + "/private.key");
+        fos.write(pkcs8EncodedKeySpec.getEncoded());
+        fos.close();
+    }
+
+    public static PublicKey loadPublicKey() {
+        try {
+            File filePublicKey = new File(PATH + "/public.key");
+            FileInputStream fis = new FileInputStream(PATH + "/public.key");
+            byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
+            fis.read(encodedPublicKey);
+            fis.close();
+            KeyFactory keyFactory = KeyFactory.getInstance("DSA");
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(
+                    encodedPublicKey);
+            return keyFactory.generatePublic(publicKeySpec);
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+            return null;
+        }
+    }
+
+    public static KeyPair LoadKeyPair()
+            throws IOException, NoSuchAlgorithmException,
+            InvalidKeySpecException {
+
+        // Read Private Key.
+        File filePrivateKey = new File(PATH + "/private.key");
+        FileInputStream fis = new FileInputStream(PATH + "/private.key");
+        byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
+        fis.read(encodedPrivateKey);
+        fis.close();
+
+        // Generate KeyPair.
+        KeyFactory keyFactory = KeyFactory.getInstance("DSA");
+        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(
+                encodedPrivateKey);
+        PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
+
+        return new KeyPair(loadPublicKey(), privateKey);
     }
 }
 
